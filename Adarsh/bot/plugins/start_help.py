@@ -18,10 +18,13 @@ from pyrogram.types import ReplyKeyboardMarkup
 async def start(b, m):
     if not await db.is_user_exist(m.from_user.id):
         await db.add_user(m.from_user.id)
-        await b.send_message(
-            Var.BIN_CHANNEL,
-            f"#NEW_USER: \n\nNew User [{m.from_user.first_name}](tg://user?id={m.from_user.id}) Started !!"
-        )
+        try:
+            await b.send_message(
+                Var.BIN_CHANNEL,
+                f"#NEW_USER: \n\nNew User [{m.from_user.first_name}](tg://user?id={m.from_user.id}) Started !!"
+            )
+        except Exception as e:
+            logging.error(f"Cannot send message to BIN_CHANNEL: {e}")
     usr_cmd = m.text.split("_")[-1]
     if usr_cmd == "/start":
         if Var.UPDATES_CHANNEL is not None:
@@ -100,7 +103,16 @@ async def start(b, m):
                     disable_web_page_preview=True)
                 return
 
-        get_msg = await b.get_messages(chat_id=Var.BIN_CHANNEL, ids=int(usr_cmd))
+        try:
+            await b.resolve_peer(Var.BIN_CHANNEL)
+            get_msg = await b.get_messages(chat_id=Var.BIN_CHANNEL, ids=int(usr_cmd))
+        except Exception as e:
+            await m.reply_text(
+                "❌ **Bot Configuration Error**\n\n"
+                "The bot cannot access the BIN_CHANNEL. Please contact the admin.\n"
+                f"Error: `{str(e)}`"
+            )
+            return
 
         file_size = None
         if get_msg.video:
@@ -136,10 +148,13 @@ async def start(b, m):
 async def help_handler(bot, message):
     if not await db.is_user_exist(message.from_user.id):
         await db.add_user(message.from_user.id)
-        await bot.send_message(
-            Var.BIN_CHANNEL,
-            f"#NEW_USER: \n\nNew User [{message.from_user.first_name}](tg://user?id={message.from_user.id}) Started !!"
-        )
+        try:
+            await bot.send_message(
+                Var.BIN_CHANNEL,
+                f"#NEW_USER: \n\nNew User [{message.from_user.first_name}](tg://user?id={message.from_user.id}) Started !!"
+            )
+        except Exception as e:
+            logging.error(f"Cannot send message to BIN_CHANNEL: {e}")
     if Var.UPDATES_CHANNEL is not None:
         try:
             user = await bot.get_chat_member(Var.UPDATES_CHANNEL, message.chat.id)
@@ -189,10 +204,13 @@ async def help_handler(bot, message):
 async def about_handler(bot, message):
     if not await db.is_user_exist(message.from_user.id):
         await db.add_user(message.from_user.id)
-        await bot.send_message(
-            Var.BIN_CHANNEL,
-            f"#NEW_USER: \n\nNew User [{message.from_user.first_name}](tg://user?id={message.from_user.id}) Started !!"
-        )
+        try:
+            await bot.send_message(
+                Var.BIN_CHANNEL,
+                f"#NEW_USER: \n\nNew User [{message.from_user.first_name}](tg://user?id={message.from_user.id}) Started !!"
+            )
+        except Exception as e:
+            logging.error(f"Cannot send message to BIN_CHANNEL: {e}")
     if Var.UPDATES_CHANNEL is not None:
         try:
             user = await bot.get_chat_member(Var.UPDATES_CHANNEL, message.chat.id)
