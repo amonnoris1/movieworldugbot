@@ -25,7 +25,7 @@ async def login_handler(c: Client, m: Message):
     try:
         try:
             ag = await m.reply_text("Now send me password.\n\n for password send 10rs to `sharundas123@ybl` and send screen shot to @kwicadmin \n\n (for running bot need contributions..unwanted message = ban + report)")
-            _text = await c.listen(m.chat.id, filters=filters.text, timeout=90)
+            _text = await c.listen(m.chat.id, filters.text, timeout=90)
             if _text.text:
                 textp = _text.text
                 if textp=="/cancel":
@@ -57,10 +57,13 @@ async def private_receive_handler(c: Client, m: Message):
             return
     if not await db.is_user_exist(m.from_user.id):
         await db.add_user(m.from_user.id)
-        await c.send_message(
-            Var.BIN_CHANNEL,
-            f"Nᴇᴡ Usᴇʀ Jᴏɪɴᴇᴅ : \n\n Nᴀᴍᴇ : [{m.from_user.first_name}](tg://user?id={m.from_user.id}) Sᴛᴀʀᴛᴇᴅ Yᴏᴜʀ Bᴏᴛ !!"
-        )
+        try:
+            await c.send_message(
+                Var.BIN_CHANNEL,
+                f"Nᴇᴡ Usᴇʀ Jᴏɪɴᴇᴅ : \n\n Nᴀᴍᴇ : [{m.from_user.first_name}](tg://user?id={m.from_user.id}) Sᴛᴀʀᴛᴇᴅ Yᴏᴜʀ Bᴏᴛ !!"
+            )
+        except Exception as e:
+            logging.error(f"Cannot send message to BIN_CHANNEL: {e}")
     if Var.UPDATES_CHANNEL != "None":
         try:
             user = await c.get_chat_member(Var.UPDATES_CHANNEL, m.chat.id)
@@ -92,6 +95,16 @@ async def private_receive_handler(c: Client, m: Message):
                 disable_web_page_preview=True)
             return
     try:
+        # Try to resolve the BIN_CHANNEL first
+        try:
+            await c.resolve_peer(Var.BIN_CHANNEL)
+        except Exception as e:
+            await m.reply_text(
+                "❌ **Bot Configuration Error**\n\n"
+                "The bot cannot access the BIN_CHANNEL. Please contact the admin.\n"
+                f"Error: `{str(e)}`"
+            )
+            return
 
         log_msg = await m.forward(chat_id=Var.BIN_CHANNEL)
         stream_link = f"{Var.URL}watch/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
@@ -144,6 +157,13 @@ async def channel_receive_handler(bot, broadcast):
         await bot.leave_chat(broadcast.chat.id)
         return
     try:
+        # Try to resolve the BIN_CHANNEL first
+        try:
+            await bot.resolve_peer(Var.BIN_CHANNEL)
+        except Exception as e:
+            logging.error(f"Cannot access BIN_CHANNEL: {e}")
+            return
+
         log_msg = await broadcast.forward(chat_id=Var.BIN_CHANNEL)
         stream_link = f"{Var.URL}watch/{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"       
         online_link = f"{Var.URL}{str(log_msg.id)}/{quote_plus(get_name(log_msg))}?hash={get_hash(log_msg)}"
