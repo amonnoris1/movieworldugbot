@@ -111,9 +111,9 @@ uploader. A key is valid only for that exact file, has no automatic expiry,
 and can later be revoked individually without affecting other films.
 
 The MySQL record is part of the recovery data. If the VPS is temporary, keep
-an encrypted off-server backup of the bot database and protected environment
-file. Telegram retains the media bytes, but a new VPS needs those small records
-to restore the same permanent links.
+an encrypted or access-restricted off-server backup of the bot database and
+protected environment file. Telegram retains the media bytes, but a new VPS
+needs those small records to restore the same permanent links.
 
 ## Installation
 
