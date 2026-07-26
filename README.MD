@@ -140,9 +140,11 @@ sudo -u movieworldtg /opt/movieworld-telegram-streamer/.venv/bin/pip install \
 ## Local development
 
 The Telegram files remain in Telegram, so local development does not depend on
-the VPS. Use a **separate development bot** and a separate private development
-channel: Telegram long polling permits only one active process per bot token,
-so do not start the VPS and local process using the same bot.
+the VPS. Local development uses the existing MovieWorld `movieworld` database;
+the bot creates only its own small `telegram_*` tables there. Use a **separate
+development bot** and a separate private development channel: Telegram long
+polling permits only one active process per bot token, so do not start the VPS
+and local process using the same bot.
 
 On the Mac, with AMPPS MySQL running:
 
