@@ -29,6 +29,7 @@ This repository contains the improvements made for MovieWorld:
 - [Requirements](#requirements)
 - [Security model](#security-model)
 - [Installation](#installation)
+- [Local development](#local-development)
 - [Configuration](#configuration)
 - [Telegram setup](#telegram-setup)
 - [Nginx and HTTPS](#nginx-and-https)
@@ -135,6 +136,33 @@ sudo -u movieworldtg /opt/movieworld-telegram-streamer/.venv/bin/pip install --u
 sudo -u movieworldtg /opt/movieworld-telegram-streamer/.venv/bin/pip install \
   -r /opt/movieworld-telegram-streamer/requirements.txt
 ```
+
+## Local development
+
+The Telegram files remain in Telegram, so local development does not depend on
+the VPS. Use a **separate development bot** and a separate private development
+channel: Telegram long polling permits only one active process per bot token,
+so do not start the VPS and local process using the same bot.
+
+On the Mac, with AMPPS MySQL running:
+
+```bash
+cd services/kwichighspeedbot
+./scripts/bootstrap-local.sh
+./scripts/run-local.sh
+```
+
+In a second terminal, confirm the local endpoint using curl:
+
+```bash
+cd services/kwichighspeedbot
+./scripts/test-local.sh
+```
+
+The local service listens at `http://127.0.0.1:9081`; its Watch and Download
+links work on the Mac. For an iPhone or another device, use a temporary secure
+tunnel or a same-Wi-Fi development address. Never use the local development
+bot or its private channel for customer media.
 
 ## Configuration
 
