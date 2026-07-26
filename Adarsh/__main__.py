@@ -55,14 +55,14 @@ def register_plugins():
 
 async def configure_bot_commands():
     """Publish only commands that this maintained bot actually handles."""
-    await StreamBot.set_bot_commands(
-        [
-            BotCommand("start", "Start the MovieWorld file bot"),
-            BotCommand("help", "Learn how private file links work"),
-            BotCommand("about", "About this test service"),
-            BotCommand("login", "Private test login, when enabled"),
-        ]
-    )
+    commands = [
+        BotCommand("start", "Start the MovieWorld file bot"),
+        BotCommand("help", "Learn how private file links work"),
+        BotCommand("about", "About this test service"),
+    ]
+    if Var.REQUIRE_LOGIN_PASSWORD:
+        commands.append(BotCommand("login", "Private test login"))
+    await StreamBot.set_bot_commands(commands)
 
 
 async def start_services():
