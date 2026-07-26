@@ -1,7 +1,10 @@
 """Small MySQL repository used only for bot user IDs and broadcast recipients."""
 
 import asyncio
+import hashlib
+import hmac
 import re
+import secrets
 
 import aiomysql
 
@@ -102,3 +105,98 @@ class Database:
                     f"DELETE FROM `{self._table}` WHERE `id` = %s",
                     (int(user_id),),
                 )
+
+
+class MediaLinkRepository:
+    """Persistent, per-file opaque access keys for private streaming links."""
+
+    _TABLE = "telegram_media_links"
+
+    def __init__(self, config):
+        self._config = config
+        self._pool = None
+        self._schema_ready = False
+        self._schema_lock = asyncio.Lock()
+
+    async def _connection_pool(self):
+        if self._pool is None:
+            self._pool = await aiomysql.create_pool(
+                **self._config,
+                minsize=1,
+                maxsize=5,
+                autocommit=True,
+                cursorclass=aiomysql.DictCursor,
+                charset="utf8mb4",
+            )
+        await self._ensure_schema()
+        return self._pool
+
+    async def _ensure_schema(self):
+        if self._schema_ready:
+            return
+        async with self._schema_lock:
+            if self._schema_ready:
+                return
+            async with self._pool.acquire() as connection:
+                async with connection.cursor() as cursor:
+                    await cursor.execute(
+                        f"""CREATE TABLE IF NOT EXISTS `{self._TABLE}` (
+                            `message_id` BIGINT UNSIGNED NOT NULL,
+                            `file_hash` CHAR(6) NOT NULL,
+                            `access_key_hash` CHAR(64) NOT NULL,
+                            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            `revoked_at` TIMESTAMP NULL DEFAULT NULL,
+                            PRIMARY KEY (`message_id`),
+                            KEY `telegram_media_links_active_idx` (`revoked_at`)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"""
+                    )
+            self._schema_ready = True
+
+    @staticmethod
+    def _key_digest(access_key: str) -> str:
+        """Never store a usable URL key in MySQL."""
+        return hashlib.sha256(access_key.encode("utf-8")).hexdigest()
+
+    async def create(self, message_id: int, file_hash: str) -> str:
+        """Create a new permanent key for a newly forwarded Telegram message."""
+        access_key = secrets.token_urlsafe(32)
+        pool = await self._connection_pool()
+        async with pool.acquire() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(
+                    f"""INSERT INTO `{self._TABLE}`
+                        (`message_id`, `file_hash`, `access_key_hash`)
+                        VALUES (%s, %s, %s)""",
+                    (int(message_id), str(file_hash), self._key_digest(access_key)),
+                )
+        return access_key
+
+    async def is_valid(self, message_id: int, file_hash: str, access_key: str) -> bool:
+        """Check one key against its exact Telegram message without leaking details."""
+        if not access_key:
+            return False
+        pool = await self._connection_pool()
+        async with pool.acquire() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(
+                    f"""SELECT `file_hash`, `access_key_hash`
+                        FROM `{self._TABLE}`
+                        WHERE `message_id` = %s AND `revoked_at` IS NULL
+                        LIMIT 1""",
+                    (int(message_id),),
+                )
+                link = await cursor.fetchone()
+        if link is None:
+            return False
+        return (
+            hmac.compare_digest(str(link["file_hash"]), str(file_hash))
+            and hmac.compare_digest(
+                str(link["access_key_hash"]), self._key_digest(access_key)
+            )
+        )
+
+    async def close(self) -> None:
+        """Release pooled MySQL connections for one-off maintenance scripts."""
+        if self._pool is not None:
+            self._pool.close()
+            await self._pool.wait_closed()

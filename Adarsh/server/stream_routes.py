@@ -16,17 +16,30 @@ from Adarsh import StartTime, __version__
 from ..utils.time_format import get_readable_time
 from ..utils.custom_dl import ByteStreamer, offset_fix, chunk_size
 from Adarsh.utils.render_template import render_page
+from Adarsh.utils.database import MediaLinkRepository
 from Adarsh.vars import Var
 
 
 routes = web.RouteTableDef()
+media_links = MediaLinkRepository(Var.DB_CONFIG)
 
 
-def require_stream_token(request: web.Request) -> None:
-    supplied_token = request.query.get("access_token", "")
-    if not hmac.compare_digest(supplied_token, Var.STREAM_ACCESS_TOKEN):
-        # Do not reveal which part of a guessed stream URL is invalid.
+async def require_media_key(request: web.Request, message_id: int, file_hash: str) -> str:
+    """Accept a key only for the exact file it was created for."""
+    access_key = request.query.get("key", "")
+    if not await media_links.is_valid(message_id, file_hash, access_key):
+        # Do not reveal whether the file, hash, or key was guessed incorrectly.
         raise web.HTTPNotFound()
+    return access_key
+
+
+def parse_stream_path(request: web.Request) -> tuple[int, str]:
+    path = request.match_info["path"]
+    match = re.search(r"^([a-zA-Z0-9_-]{6})(\d+)$", path)
+    if match:
+        return int(match.group(2)), match.group(1)
+    message_id = int(re.search(r"(\d+)(?:/\S+)?", path).group(1))
+    return message_id, request.rel_url.query.get("hash", "")
 
 @routes.get("/healthz", allow_head=True)
 async def health_route_handler(request):
@@ -39,16 +52,14 @@ async def health_route_handler(request):
 @routes.get(r"/watch/{path:\S+}", allow_head=True)
 async def stream_handler(request: web.Request):
     try:
-        require_stream_token(request)
-        path = request.match_info["path"]
-        match = re.search(r"^([a-zA-Z0-9_-]{6})(\d+)$", path)
-        if match:
-            secure_hash = match.group(1)
-            id = int(match.group(2))
-        else:
-            id = int(re.search(r"(\d+)(?:\/\S+)?", path).group(1))
-            secure_hash = request.rel_url.query.get("hash")
-        return web.Response(text=await render_page(id, secure_hash), content_type='text/html')
+        id, secure_hash = parse_stream_path(request)
+        access_key = await require_media_key(request, id, secure_hash)
+        return web.Response(
+            text=await render_page(id, secure_hash, access_key),
+            content_type='text/html',
+        )
+    except web.HTTPException:
+        raise
     except InvalidHash as e:
         raise web.HTTPForbidden(text=e.message)
     except FIleNotFound as e:
@@ -62,16 +73,11 @@ async def stream_handler(request: web.Request):
 @routes.get(r"/{path:\S+}", allow_head=True)
 async def stream_handler(request: web.Request):
     try:
-        require_stream_token(request)
-        path = request.match_info["path"]
-        match = re.search(r"^([a-zA-Z0-9_-]{6})(\d+)$", path)
-        if match:
-            secure_hash = match.group(1)
-            id = int(match.group(2))
-        else:
-            id = int(re.search(r"(\d+)(?:\/\S+)?", path).group(1))
-            secure_hash = request.rel_url.query.get("hash")
+        id, secure_hash = parse_stream_path(request)
+        await require_media_key(request, id, secure_hash)
         return await media_streamer(request, id, secure_hash)
+    except web.HTTPException:
+        raise
     except InvalidHash as e:
         raise web.HTTPForbidden(text=e.message)
     except FIleNotFound as e:

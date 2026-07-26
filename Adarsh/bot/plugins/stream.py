@@ -4,14 +4,14 @@ import asyncio
 import logging
 import os
 from asyncio import TimeoutError
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlencode
 
 from pyrogram import Client, enums, filters
 from pyrogram.errors import FloodWait
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from Adarsh.bot import StreamBot
-from Adarsh.utils.database import Database
+from Adarsh.utils.database import Database, MediaLinkRepository
 from Adarsh.utils.file_properties import get_hash, get_media_file_size, get_name
 from Adarsh.utils.human_readable import humanbytes
 from Adarsh.vars import Var
@@ -19,11 +19,15 @@ from Adarsh.vars import Var
 logger = logging.getLogger(__name__)
 db = Database(Var.DB_CONFIG, "users")
 password_db = Database(Var.DB_CONFIG, "passwords")
+media_links = MediaLinkRepository(Var.DB_CONFIG)
 MY_PASS = os.environ.get("MY_PASS") if Var.REQUIRE_LOGIN_PASSWORD else None
 
 
-def file_links(message) -> tuple[str, str]:
-    query = f"hash={get_hash(message)}&access_token={quote_plus(Var.STREAM_ACCESS_TOKEN)}"
+async def file_links(message) -> tuple[str, str]:
+    """Create permanent links whose key can access only this one file."""
+    file_hash = get_hash(message)
+    access_key = await media_links.create(message.id, file_hash)
+    query = urlencode({"hash": file_hash, "key": access_key})
     filename = quote_plus(get_name(message))
     watch_url = f"{Var.URL}watch/{message.id}/{filename}?{query}"
     download_url = f"{Var.URL}{message.id}/{filename}?{query}"
@@ -67,12 +71,12 @@ async def private_receive_handler(client: Client, message: Message):
         # The bot must be a Telegram administrator in this private channel.
         await client.resolve_peer(Var.BIN_CHANNEL)
         stored_message = await message.forward(chat_id=Var.BIN_CHANNEL)
-        watch_url, download_url = file_links(stored_message)
+        watch_url, download_url = await file_links(stored_message)
         name = get_name(stored_message) or "test file"
         size = humanbytes(get_media_file_size(message))
         await message.reply_text(
             f"Private test link created.\n\nFile: {name}\nSize: {size}\n\n"
-            "Do not share these links; they are not production MovieWorld links.",
+            "Keep these links private. Each link works only for this one test file.",
             disable_web_page_preview=True,
             reply_markup=InlineKeyboardMarkup(
                 [[

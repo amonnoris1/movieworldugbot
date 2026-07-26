@@ -12,6 +12,7 @@ from pathlib import Path
 asyncio.set_event_loop(asyncio.new_event_loop())
 
 from pyrogram import idle, utils as pyrogram_utils
+from pyrogram.types import BotCommand
 from .bot import StreamBot
 from .vars import Var
 from aiohttp import web
@@ -52,6 +53,18 @@ def register_plugins():
             print("Imported => " + plugin_name)
 
 
+async def configure_bot_commands():
+    """Publish only commands that this maintained bot actually handles."""
+    await StreamBot.set_bot_commands(
+        [
+            BotCommand("start", "Start the MovieWorld file bot"),
+            BotCommand("help", "Learn how private file links work"),
+            BotCommand("about", "About this test service"),
+            BotCommand("login", "Private test login, when enabled"),
+        ]
+    )
+
+
 async def start_services():
     register_plugins()
     print('\n')
@@ -59,6 +72,7 @@ async def start_services():
     await StreamBot.start()
     bot_info = await StreamBot.get_me()
     StreamBot.username = bot_info.username
+    await configure_bot_commands()
     try:
         await StreamBot.get_chat(Var.BIN_CHANNEL)
         logging.info("Configured Telegram storage channel is reachable")

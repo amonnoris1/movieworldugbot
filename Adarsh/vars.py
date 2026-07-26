@@ -37,8 +37,6 @@ class Var(object):
     # Public HTTPS address handled by Nginx/Cloudflare, never the raw bot port.
     PUBLIC_BASE_URL = _required('PUBLIC_BASE_URL').rstrip('/')
     URL = f"{PUBLIC_BASE_URL}/"
-    # This protects the test stream endpoints. It must remain server-side.
-    STREAM_ACCESS_TOKEN = _required('STREAM_ACCESS_TOKEN')
     HEALTHCHECK_TOKEN = _required('HEALTHCHECK_TOKEN')
     DB_HOST = _required('DB_HOST')
     DB_PORT = int(getenv('DB_PORT', '3306'))

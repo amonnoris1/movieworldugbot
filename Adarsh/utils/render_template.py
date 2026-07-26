@@ -9,7 +9,7 @@ import aiofiles
 import logging
 
 
-async def render_page(id, secure_hash):
+async def render_page(id, secure_hash, access_key):
     file_data=await get_file_ids(StreamBot, int(Var.BIN_CHANNEL), int(id))
     if file_data.unique_id[:6] != secure_hash:
         logging.debug(f'link hash: {secure_hash} - {file_data.unique_id[:6]}')
@@ -17,7 +17,7 @@ async def render_page(id, secure_hash):
         raise InvalidHash
     src = urllib.parse.urljoin(
         Var.URL,
-        f'{secure_hash}{str(id)}?{urllib.parse.urlencode({"access_token": Var.STREAM_ACCESS_TOKEN})}',
+        f'{secure_hash}{str(id)}?{urllib.parse.urlencode({"key": access_key})}',
     )
     if str(file_data.mime_type.split('/')[0].strip()) == 'video':
         async with aiofiles.open('Adarsh/template/req.html') as r:

@@ -73,8 +73,8 @@ listen on the loopback address and Nginx should be the public entry point.
 
 ### Secrets
 
-Keep `BOT_TOKEN`, `API_HASH`, `STREAM_ACCESS_TOKEN`, `HEALTHCHECK_TOKEN`, and
-the MySQL password in a root-owned environment file such as:
+Keep `BOT_TOKEN`, `API_HASH`, `HEALTHCHECK_TOKEN`, and the MySQL password in a
+root-owned environment file such as:
 
 ```text
 /etc/movieworld-telegram-streamer.env
@@ -102,13 +102,18 @@ openssl rand -hex 32
 - Nginx sends `no-referrer`, `no-store`, `nosniff`, frame blocking, and a
   restrictive Content Security Policy for player pages.
 
-### Current link protection
+### Per-file permanent link protection
 
-The proof of concept uses a global stream access token in each generated URL.
-It is suitable only for private testing. If that token leaks, it may be reused
-against other file URLs. Before serving real customers, replace it with a
-unique long random key per video, stored in MySQL, so revoking one leaked link
-does not affect every file.
+Every forwarded file receives its own 256-bit random URL key. MySQL stores only
+the SHA-256 fingerprint of that key alongside the Telegram message ID and file
+hash; the raw key exists only in the Watch and Download URL returned to the
+uploader. A key is valid only for that exact file, has no automatic expiry,
+and can later be revoked individually without affecting other films.
+
+The MySQL record is part of the recovery data. If the VPS is temporary, keep
+an encrypted off-server backup of the bot database and protected environment
+file. Telegram retains the media bytes, but a new VPS needs those small records
+to restore the same permanent links.
 
 ## Installation
 
@@ -163,7 +168,6 @@ BIN_CHANNEL=
 OWNER_ID=
 
 PUBLIC_BASE_URL=https://telegram.example.com
-STREAM_ACCESS_TOKEN=
 HEALTHCHECK_TOKEN=
 
 DB_HOST=127.0.0.1
@@ -307,32 +311,42 @@ sudo systemctl is-active movieworld-telegram-streamer
 
 ### Rotating a secret
 
-Change the secret only in `/etc/movieworld-telegram-streamer.env`, restart the
-service, and test with `curl`. Rotating the current global stream token
-invalidates every existing test link. This is another reason to implement
-per-file keys before broader use.
+Change a secret only in `/etc/movieworld-telegram-streamer.env`, restart the
+service, and test with `curl`. The file keys are independent of the health
+token; rotating the health token does not invalidate file links.
 
 ### Database backup
 
 Back up only the bot database, and protect the dump because it contains
-Telegram IDs:
+Telegram IDs and the hashes that validate permanent links. For a temporary
+VPS, stream the dump directly to a permission-restricted location on a
+separate machine; do not leave the only copy on the VPS:
 
 ```bash
-mysqldump -u movieworld_telegram -p movieworld_telegram | gzip > telegram-bot.sql.gz
-chmod 0600 telegram-bot.sql.gz
+# Run from the backup machine, not from the VPS.
+ssh root@YOUR_VPS_IP \
+  '/opt/movieworld-telegram-streamer/deploy/export-telegram-link-map.sh' \
+  | gzip > telegram-link-map.sql.gz
+chmod 0600 telegram-link-map.sql.gz
+gzip -t telegram-link-map.sql.gz
 ```
+
+To recover on a replacement VPS, recreate the least-privilege database user,
+restore this dump into the bot database, restore the public hostname and a bot
+token, then deploy the same code. Telegram still holds the media files; this
+dump restores the MySQL records that recognise each permanent URL key.
 
 ## Known limitations and roadmap
 
 This service is intentionally not presented as a production content-delivery
 platform. Before integrating it with MovieWorld customer accounts, implement:
 
-1. One permanent, random, revocable MySQL access key per uploaded file.
-2. MovieWorld account authentication and entitlement checks for playback.
-3. Upload moderation, audit logs, rate limits, and abuse controls.
-4. HLS packaging/transcoding and a storage/CDN designed for licensed video
+1. MovieWorld account authentication and entitlement checks for playback.
+2. Upload moderation, audit logs, rate limits, and abuse controls.
+3. HLS packaging/transcoding and a storage/CDN designed for licensed video
    delivery, if traffic grows.
-5. Monitoring, backups, incident alerts, and documented recovery procedures.
+4. Automated off-server backups, monitoring, incident alerts, and documented
+   recovery drills.
 
 Never use this software to distribute media without the necessary rights.
 
