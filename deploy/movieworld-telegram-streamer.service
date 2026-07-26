@@ -1,0 +1,23 @@
+[Unit]
+Description=MovieWorld isolated Telegram streaming test service
+After=network-online.target mariadb.service mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=movieworldtg
+Group=movieworldtg
+WorkingDirectory=/opt/movieworld-telegram-streamer
+EnvironmentFile=/etc/movieworld-telegram-streamer.env
+ExecStart=/opt/movieworld-telegram-streamer/.venv/bin/python -m Adarsh
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/movieworld-telegram-streamer
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -7,6 +7,7 @@ import math
 import logging
 import secrets
 import mimetypes
+import hmac
 from aiohttp import web
 from aiohttp.http_exceptions import BadStatusLine
 from Adarsh.bot import multi_clients, work_loads, StreamBot
@@ -20,28 +21,25 @@ from Adarsh.vars import Var
 
 routes = web.RouteTableDef()
 
-@routes.get("/", allow_head=True)
-async def root_route_handler(_):
-    return web.json_response(
-        {
-            "server_status": "running",
-            "uptime": get_readable_time(time.time() - StartTime),
-            "telegram_bot": "@" + StreamBot.username,
-            "connected_bots": len(multi_clients),
-            "loads": dict(
-                ("bot" + str(c + 1), l)
-                for c, (_, l) in enumerate(
-                    sorted(work_loads.items(), key=lambda x: x[1], reverse=True)
-                )
-            ),
-            "version": __version__,
-        }
-    )
+
+def require_stream_token(request: web.Request) -> None:
+    supplied_token = request.query.get("access_token", "")
+    if not hmac.compare_digest(supplied_token, Var.STREAM_ACCESS_TOKEN):
+        # Do not reveal which part of a guessed stream URL is invalid.
+        raise web.HTTPNotFound()
+
+@routes.get("/healthz", allow_head=True)
+async def health_route_handler(request):
+    supplied_token = request.query.get("token", "")
+    if not hmac.compare_digest(supplied_token, Var.HEALTHCHECK_TOKEN):
+        raise web.HTTPNotFound()
+    return web.json_response({"status": "ok"})
 
 
 @routes.get(r"/watch/{path:\S+}", allow_head=True)
 async def stream_handler(request: web.Request):
     try:
+        require_stream_token(request)
         path = request.match_info["path"]
         match = re.search(r"^([a-zA-Z0-9_-]{6})(\d+)$", path)
         if match:
@@ -64,6 +62,7 @@ async def stream_handler(request: web.Request):
 @routes.get(r"/{path:\S+}", allow_head=True)
 async def stream_handler(request: web.Request):
     try:
+        require_stream_token(request)
         path = request.match_info["path"]
         match = re.search(r"^([a-zA-Z0-9_-]{6})(\d+)$", path)
         if match:

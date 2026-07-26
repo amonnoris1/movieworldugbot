@@ -86,9 +86,15 @@ celerybeat-schedule
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Environments and deployment secrets. Commit only .env.example.
 .env
+.env.*
+!.env.example
 config.env
+secrets/
+*.pem
+*.key
+*.crt
 .venv
 env/
 venv/
@@ -116,6 +122,8 @@ dmypy.json
 
 #session files
 *.session
+*.session-journal
+*.log
 WebStreamer/template/new.html
 WebStreamer/template/beta.html
 WebStreamer/template/style.css

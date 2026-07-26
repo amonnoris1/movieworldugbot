@@ -4,9 +4,9 @@ from Adarsh.utils.human_readable import humanbytes
 from Adarsh.utils.file_properties import get_file_ids
 from Adarsh.server.exceptions import InvalidHash
 import urllib.parse
+import html
 import aiofiles
 import logging
-import aiohttp
 
 
 async def render_page(id, secure_hash):
@@ -15,22 +15,35 @@ async def render_page(id, secure_hash):
         logging.debug(f'link hash: {secure_hash} - {file_data.unique_id[:6]}')
         logging.debug(f"Invalid hash for message with - ID {id}")
         raise InvalidHash
-    src = urllib.parse.urljoin(Var.URL, f'{secure_hash}{str(id)}')
+    src = urllib.parse.urljoin(
+        Var.URL,
+        f'{secure_hash}{str(id)}?{urllib.parse.urlencode({"access_token": Var.STREAM_ACCESS_TOKEN})}',
+    )
     if str(file_data.mime_type.split('/')[0].strip()) == 'video':
         async with aiofiles.open('Adarsh/template/req.html') as r:
-            heading = 'Watch {}'.format(file_data.file_name)
+            heading = 'Watch {}'.format(html.escape(file_data.file_name or 'video'))
             tag = file_data.mime_type.split('/')[0].strip()
-            html = (await r.read()).replace('tag', tag) % (heading, file_data.file_name, src)
+            page_html = (await r.read())
+            page_html = page_html.replace('{{TITLE}}', heading)
+            page_html = page_html.replace('{{NAME}}', html.escape(file_data.file_name or 'video'))
+            page_html = page_html.replace('{{SOURCE}}', html.escape(src, quote=True))
+            page_html = page_html.replace('{{MEDIA_TAG}}', tag)
     elif str(file_data.mime_type.split('/')[0].strip()) == 'audio':
         async with aiofiles.open('Adarsh/template/req.html') as r:
-            heading = 'Listen {}'.format(file_data.file_name)
+            heading = 'Listen {}'.format(html.escape(file_data.file_name or 'audio'))
             tag = file_data.mime_type.split('/')[0].strip()
-            html = (await r.read()).replace('tag', tag) % (heading, file_data.file_name, src)
+            page_html = (await r.read())
+            page_html = page_html.replace('{{TITLE}}', heading)
+            page_html = page_html.replace('{{NAME}}', html.escape(file_data.file_name or 'audio'))
+            page_html = page_html.replace('{{SOURCE}}', html.escape(src, quote=True))
+            page_html = page_html.replace('{{MEDIA_TAG}}', tag)
     else:
         async with aiofiles.open('Adarsh/template/dl.html') as r:
-            async with aiohttp.ClientSession() as s:
-                async with s.get(src) as u:
-                    heading = 'Download {}'.format(file_data.file_name)
-                    file_size = humanbytes(int(u.headers.get('Content-Length')))
-                    html = (await r.read()) % (heading, file_data.file_name, src, file_size)
-    return html
+            heading = 'Download {}'.format(html.escape(file_data.file_name or 'file'))
+            file_size = humanbytes(int(file_data.file_size))
+            page_html = (await r.read())
+            page_html = page_html.replace('{{TITLE}}', heading)
+            page_html = page_html.replace('{{NAME}}', html.escape(file_data.file_name or 'file'))
+            page_html = page_html.replace('{{FILE_SIZE}}', html.escape(file_size))
+            page_html = page_html.replace('{{SOURCE}}', html.escape(src, quote=True))
+    return page_html

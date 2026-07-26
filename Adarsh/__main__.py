@@ -6,12 +6,16 @@ import asyncio
 import logging
 import importlib
 from pathlib import Path
-from pyrogram import idle
+
+# Python 3.14 no longer creates a main-thread event loop implicitly. Pyrogram's
+# synchronous compatibility layer still expects one during import.
+asyncio.set_event_loop(asyncio.new_event_loop())
+
+from pyrogram import idle, utils as pyrogram_utils
 from .bot import StreamBot
 from .vars import Var
 from aiohttp import web
 from .server import web_server
-from .utils.keepalive import ping_server
 from Adarsh.bot.clients import initialize_clients
 
 logging.basicConfig(
@@ -22,25 +26,18 @@ logging.getLogger("aiohttp").setLevel(logging.ERROR)
 logging.getLogger("pyrogram").setLevel(logging.ERROR)
 logging.getLogger("aiohttp.web").setLevel(logging.ERROR)
 
+# Pyrogram 2.0.106 still limits channel peer IDs to the old signed 32-bit
+# range. Telegram now issues larger channel IDs; accept the current channel
+# range without changing the message or authentication protocol.
+pyrogram_utils.MIN_CHANNEL_ID = -2_000_000_000_000
+
 ppath = "Adarsh/bot/plugins/*.py"
 files = glob.glob(ppath)
-StreamBot.start()
 loop = asyncio.get_event_loop()
 
 
-async def start_services():
-    print('\n')
-    print('------------------- Initalizing Telegram Bot -------------------')
-    bot_info = await StreamBot.get_me()
-    StreamBot.username = bot_info.username
-    print("------------------------------ DONE ------------------------------")
-    print()
-    print(
-        "---------------------- Initializing Clients ----------------------"
-    )
-    await initialize_clients()
-    print("------------------------------ DONE ------------------------------")
-    print('\n')
+def register_plugins():
+    """Register every command handler before Telegram polling begins."""
     print('--------------------------- Importing ---------------------------')
     for name in files:
         with open(name) as a:
@@ -53,31 +50,34 @@ async def start_services():
             spec.loader.exec_module(load)
             sys.modules["Adarsh.bot.plugins." + plugin_name] = load
             print("Imported => " + plugin_name)
-    if Var.ON_HEROKU:
-        print("------------------ Starting Keep Alive Service ------------------")
-        print()
-        asyncio.create_task(ping_server())
+
+
+async def start_services():
+    register_plugins()
+    print('\n')
+    print('------------------- Initializing Telegram Bot -------------------')
+    await StreamBot.start()
+    bot_info = await StreamBot.get_me()
+    StreamBot.username = bot_info.username
+    try:
+        await StreamBot.get_chat(Var.BIN_CHANNEL)
+        logging.info("Configured Telegram storage channel is reachable")
+    except Exception:
+        logging.exception("Configured Telegram storage channel could not be resolved")
+    print("------------------------------ DONE ------------------------------")
+    print()
+    print("---------------------- Initializing Clients ----------------------")
+    await initialize_clients()
+    print("------------------------------ DONE ------------------------------")
+    print('\n')
     print('-------------------- Initalizing Web Server -------------------------')
     app = web.AppRunner(await web_server())
     await app.setup()
-    bind_address = "0.0.0.0" if Var.ON_HEROKU else Var.BIND_ADRESS
+    bind_address = Var.BIND_ADRESS
     await web.TCPSite(app, bind_address, Var.PORT).start()
     print('----------------------------- DONE ---------------------------------------------------------------------')
     print('\n')
-    print('---------------------------------------------------------------------------------------------------------')
-    print('---------------------------------------------------------------------------------------------------------')
-    print(' follow me for more such exciting bots! https://github.com/aadhi000')
-    print('---------------------------------------------------------------------------------------------------------')
-    print('\n')
-    print('----------------------- Service Started -----------------------------------------------------------------')
-    print('                        bot =>> {}'.format((await StreamBot.get_me()).first_name))
-    print('                        server ip =>> {}:{}'.format(bind_address, Var.PORT))
-    print('                        Owner =>> {}'.format((Var.OWNER_USERNAME)))
-    if Var.ON_HEROKU:
-        print('                        app runnng on =>> {}'.format(Var.FQDN))
-    print('---------------------------------------------------------------------------------------------------------')
-    print('Give a star to my repo https://github.com/adarsh-goel/filestreambot-pro  also follow me for new bots')
-    print('---------------------------------------------------------------------------------------------------------')
+    print('MovieWorld Telegram test service started on {}:{}'.format(bind_address, Var.PORT))
     await idle()
 
 if __name__ == '__main__':

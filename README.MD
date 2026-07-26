@@ -1,170 +1,344 @@
-**<h1 align="center"><b>ғɪʟᴇ ᴛᴏ ʟɪɴᴋ ʙᴏᴛ ⚡</b></h1>**
-<p align="center">
-  <a href="https://youtube.com/@kwicbotupdates">
-    <img src="https://te.legra.ph/file/8dfe7256883cbc0190478.jpg">
-  </a>
-  <p align="center">
-    𝙸 𝙲𝙰𝙽 𝙶𝙴𝙽𝙴𝚁𝙰𝚃𝙴 𝙳𝙸𝚁𝙴𝙲𝚃 𝙳𝙾𝚆𝙽𝙻𝙾𝙰𝙳 𝙻𝙸𝙽𝙺 𝙵𝙾𝚁 𝙰𝙽𝚈 𝚅𝙸𝙳𝙴𝙾/𝙵𝙸𝙻𝙴𝚂 𝙵𝙾𝚁 𝙳𝙾𝚆𝙽𝙻𝙾𝙰𝙳𝙸𝙽𝙶 𝙾𝙽𝙻𝙸𝙽𝙴 & 𝙵𝙾𝚁 𝚂𝚃𝚁𝙴𝙰𝙼𝙸𝙽𝙶...
-    <br />
-    <a href="https://t.me/kwichighspeedbot"><strong>𝙵𝙸𝙻𝙴 𝚃𝙾 𝙻𝙸𝙽𝙺 𝙱𝙾𝚃 »</strong></a>
-    <br />
-  </p>
-  <p align="center">
-  <a href="https://youtube.com/@kwicbotupdates">
-        <img src="https://img.shields.io/badge/𝐒𝐔𝐁𝐒𝐂𝐑𝐈𝐁𝐄-red?logo=youtube" width="200">
-  </p>
-<hr>
-  
-## About This Bot
+# MovieWorld Telegram File-to-Link Bot
 
-<b><a href="https://www.github.com/KWICBOTS" title="Follow">Follow Me For Updates</a></b>
+A security-hardened, MySQL-backed adaptation of the original
+[FileStreamBot-pro](https://github.com/adarsh-goel/FileStreamBot-pro) project.
+It accepts a media file in a private Telegram chat, forwards it to a private
+Telegram storage channel, and replies with Watch and Download test links.
 
-## Up to 4GB files Supported ♥️
+This repository contains the improvements made for MovieWorld:
 
-<p align='center'>
-    This bot will give you stream links and fast download links for Telegram files without the need of waiting till the download completes
-</p>
+- MySQL replaces MongoDB for registered users and broadcast recipients.
+- Secrets are read from a protected environment file; none belong in Git.
+- The Python service binds to `127.0.0.1` only, with Nginx handling public HTTPS.
+- File and health routes require server-side secrets and return `404` when
+  authentication fails, rather than confirming guessed links.
+- HTML player pages use local templates and escaped values.
+- The service works with recent Python releases and Telegram channel IDs larger
+  than Pyrogram's older default range.
+- A systemd unit and Nginx templates are supplied for a least-privilege Linux
+  deployment.
 
-## Commands
+> **Status: private proof of concept.** This is not yet MovieWorld's public
+> streaming pipeline. It proxies every byte from Telegram through the VPS,
+> does not transcode to HLS, and does not apply per-customer entitlement checks.
+> Use it only with media you own or are authorised to distribute.
 
-start - for stating the bot
+## Contents
 
-status - bot current status
+- [How it works](#how-it-works)
+- [Requirements](#requirements)
+- [Security model](#security-model)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Telegram setup](#telegram-setup)
+- [Nginx and HTTPS](#nginx-and-https)
+- [Running as a service](#running-as-a-service)
+- [Using the bot](#using-the-bot)
+- [Testing](#testing)
+- [Operations](#operations)
+- [Known limitations and roadmap](#known-limitations-and-roadmap)
+- [Credits and licence](#credits-and-licence)
 
-help - to open help section
+## How it works
 
-about - bot about menu
-
-users - total bot users count
-
-broadcast - broadcast a message to all users
-
-login - to login if it's password protected 
-
-
-## How to make your own
-
-Either you could locally host or deploy on [Heroku](https://heroku.com)
-
-### Deploy on Render
-
-Press the button and make ytml folder and deploy on Render
-
-<a href="https://render.com/deploy?repo=https://github.com/KWICBOTS/kwichighspeedbot">
-<img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Render">
-</a>
-
-🚀Features<p>
-💥Superfast⚡️ download and stream links.<br>
-💥No ads in generated links.<br>
-💥Superfast interface.<br>
-💥Along with the links you also get file information like name,size ,etc.<br>
-💥Updates channel Support.<br>
-💥Mongodb database support for broadcasting.<br>
-💥Password Protection.<br>
-💥User Freindly Interface.<br>
-💥Ping check.<br>
-💥User DC Check.<br>
-💥Real time CPU , RAM , Internet usage. <br>
-💥Custom Domain support. <br>
-💥All unwanted code removed. <br>
-💥A lot more tired of writing check out by deploying it. 
-</details>
-<details>
-  <summary><b>Host it on VPS Locally :</b></summary>
-
-
-```py
-git clone https://github.com/adarsh-goel/Filestreambot-pro
-cd Filestreambot-pro
-virtualenv -p /usr/bin/python3 venv
-. ./venv/bin/activate
-pip install -r requirements.txt
-python3 -m Adarsh
+```text
+Authorised uploader
+        |
+        v
+Telegram bot (private chat) -----> private Telegram storage channel
+        |                                      |
+        | Watch / Download link                | file remains in Telegram
+        v                                      v
+Browser -> HTTPS Nginx -> localhost Python service -> Telegram byte stream
 ```
 
-and to stop the whole bot,
- do <kbd>CTRL</kbd>+<kbd>C</kbd>
+The web service does not store a second copy of the video. On every playback
+or download request it reads the file from the configured Telegram channel and
+streams it through the server to the browser.
 
-Setting up things
+## Requirements
 
-If you're on Heroku, just add these in the Environmental Variables
-or if you're Locally hosting, create a file named `config.env` in the root directory and add all the variables there.
-An example of `config.env` file:
+- Linux VPS running systemd
+- Python 3.11 or newer (tested with modern Python; use a virtual environment)
+- MySQL 8+ or MariaDB 10.6+
+- Nginx and a DNS name with a valid HTTPS certificate
+- A Telegram bot token from [@BotFather](https://t.me/BotFather)
+- Telegram `API_ID` and `API_HASH` from [my.telegram.org](https://my.telegram.org)
+- A private Telegram channel where the bot is an administrator
 
-```py
-API_ID=12345
-API_HASH=esx576f8738x883f3sfzx83
-BOT_TOKEN=55838383:yourtbottokenhere
-BIN_CHANNEL=-100
-PORT=8080
-FQDN=your_server_ip
-OWNER_ID=your_user_id
-DATABASE_URL=mongodb_uri
+Do not point public DNS directly at the Python port. The process should only
+listen on the loopback address and Nginx should be the public entry point.
+
+## Security model
+
+### Secrets
+
+Keep `BOT_TOKEN`, `API_HASH`, `STREAM_ACCESS_TOKEN`, `HEALTHCHECK_TOKEN`, and
+the MySQL password in a root-owned environment file such as:
+
+```text
+/etc/movieworld-telegram-streamer.env
 ```
-  </details>
 
-<details>
-  <summary><b>Vars and Details :</b></summary>
+Set it to `0600` permissions and make the service account its group owner only
+when that account needs to read it. Never commit it, paste it into a frontend
+environment file, or show a full link containing an access token in a
+screenshot.
 
-`API_ID` : Goto [my.telegram.org](https://my.telegram.org) to obtain this.
+Generate unrelated secrets on the server:
 
-`API_HASH` : Goto [my.telegram.org](https://my.telegram.org) to obtain this.
-  
-`MY_PASS` : Bot PASSWORD
+```bash
+openssl rand -hex 32
+```
 
-`BOT_TOKEN` : Get the bot token from [@BotFather](https://telegram.dog/BotFather)
+### Network and process isolation
 
-`BIN_CHANNEL` : Create a new channel (private/public), add [@missrose_bot](https://telegram.dog/MissRose_bot) as admin to the channel and type /id. Now copy paste the ID into this field.
-  
-`OWNER_USERNAME` : U should be knowing it afterall it's your username dont remember ? it just go to settings!
+- `WEB_SERVER_BIND_ADDRESS=127.0.0.1` keeps the Python port off the Internet.
+- Nginx terminates TLS and proxies to the local process.
+- The supplied systemd unit uses a dedicated unprivileged user, a restrictive
+  umask, private temporary storage, and systemd filesystem protections.
+- The MySQL account should have access only to this bot database, from
+  `localhost`, with the minimum grants needed for its tables.
+- Nginx sends `no-referrer`, `no-store`, `nosniff`, frame blocking, and a
+  restrictive Content Security Policy for player pages.
 
-`OWNER_ID` : Your Telegram User ID
+### Current link protection
 
-`DATABASE_URL` : MongoDB URI for saving User IDs when they first Start the Bot. We will use that for Broadcasting to them. I will try to add more features related with Database. If you need help to get the URI you can click on logo below!
+The proof of concept uses a global stream access token in each generated URL.
+It is suitable only for private testing. If that token leaks, it may be reused
+against other file URLs. Before serving real customers, replace it with a
+unique long random key per video, stored in MySQL, so revoking one leaked link
+does not affect every file.
 
-[![Deploy k mongo](https://telegra.ph/file/fd68906852c71fdd68bef.jpg)](https://www.youtube.com/watch?v=HhHzCfrqsoE)
+## Installation
 
- Option Vars
+The example uses `/opt/movieworld-telegram-streamer`. Adjust paths and the
+service user for your VPS.
 
-`UPDATES_CHANNEL` : Put a Public Channel Username, so every user have to Join that channel to use the bot. Must add bot to channel as Admin to work properly.
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip nginx mariadb-server
 
-`BANNED_CHANNELS` : Put IDs of Banned Channels where bot will not work. You can add multiple IDs & separate with <kbd>Space</kbd>.
+sudo useradd --system --home /opt/movieworld-telegram-streamer \
+  --shell /usr/sbin/nologin movieworldtg
+sudo install -d -o movieworldtg -g movieworldtg /opt/movieworld-telegram-streamer
 
-`SLEEP_THRESHOLD` : Set a sleep threshold for flood wait exceptions happening globally in this telegram bot instance, below which any request that raises a flood wait will be automatically invoked again after sleeping for the required amount of time. Flood wait exceptions requiring higher waiting times will be raised. Defaults to 60 seconds.
+sudo -u movieworldtg git clone https://github.com/amonnoris1/movieworldugbot.git \
+  /opt/movieworld-telegram-streamer
+sudo -u movieworldtg python3 -m venv /opt/movieworld-telegram-streamer/.venv
+sudo -u movieworldtg /opt/movieworld-telegram-streamer/.venv/bin/pip install --upgrade pip
+sudo -u movieworldtg /opt/movieworld-telegram-streamer/.venv/bin/pip install \
+  -r /opt/movieworld-telegram-streamer/requirements.txt
+```
 
-`WORKERS` : Number of maximum concurrent workers for handling incoming updates. Defaults to `3`
+## Configuration
 
-`PORT` : The port that you want your webapp to be listened to. Defaults to `8080`
+Create a dedicated database and local-only account. Replace the example
+password before executing it; do not reuse MovieWorld's main database account.
 
-`WEB_SERVER_BIND_ADDRESS` : Your server bind adress. Defauls to `0.0.0.0`
+```sql
+CREATE DATABASE movieworld_telegram
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'movieworld_telegram'@'localhost' IDENTIFIED BY 'choose-a-long-unique-password';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE ON movieworld_telegram.*
+  TO 'movieworld_telegram'@'localhost';
+FLUSH PRIVILEGES;
+```
 
-`NO_PORT` : If you don't want your port to be displayed. You should point your `PORT` to `80` (http) or `443` (https) for the links to work. Ignore this if you're on Heroku.
+Create the protected runtime file from the committed template:
 
-`FQDN` :  A Fully Qualified Domain Name if present. Defaults to `WEB_SERVER_BIND_ADDRESS` </details>
+```bash
+sudo install -o root -g movieworldtg -m 0640 /dev/null \
+  /etc/movieworld-telegram-streamer.env
+sudoedit /etc/movieworld-telegram-streamer.env
+```
 
-<details>
-  <summary><b>How to Use :</b></summary>
+Use this structure, replacing every placeholder with your own value:
 
-:warning: **Before using the  bot, don't forget to add the bot to the `BIN_CHANNEL` as an Admin**
- 
-`/start` : To check if the bot is alive or not.
+```dotenv
+API_ID=
+API_HASH=
+BOT_TOKEN=
+BIN_CHANNEL=
+OWNER_ID=
 
-To get an instant stream link, just forward any media to the bot and boom, its fast af.
-  
-![image](https://user-images.githubusercontent.com/88939380/145798095-3cdad108-96b0-4391-a540-cad144d6b864.png)
+PUBLIC_BASE_URL=https://telegram.example.com
+STREAM_ACCESS_TOKEN=
+HEALTHCHECK_TOKEN=
 
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=movieworld_telegram
+DB_USERNAME=movieworld_telegram
+DB_PASSWORD=
 
-### Channel Support
-Bot also Supported with Channels. Just add bot Channel as Admin. If any new file comes in Channel it will edit it with **Get Download Link** Button. </details>
+WEB_SERVER_BIND_ADDRESS=127.0.0.1
+PORT=9080
+REQUIRE_LOGIN_PASSWORD=false
+```
 
-### Credits : 
+The committed [.env.example](.env.example) contains the same list. It is safe
+to copy, but it intentionally contains no live credentials.
 
-- [Adarsh Goel_(me)](https://github.com/adarsh-goel)
-- [DeekshithSH](https://github.com/DeekshithSH) 
-- <b>⍣ [ᴀᴀᴅʜɪ](https://GitHub.com/Aadhi000)</b>
-- <b>⍣ [KWIC](https://GitHub.com/KWICBOTS)</b>
-- Everyone In This Journey !
+## Telegram setup
 
-<b>ᴅᴇᴠᴇʟᴏᴘᴇʀ ›› [KWIC](https://t.me/kwicbotupdates) | [ɪɴsᴛᴀɢʀᴀᴍ](https://www.instagram.com/sharun_pheonix/) | [ɢɪᴛʜᴜʙ](https://GitHub.com/KWICBOTS)</b>                                                                                                                                                                                    
-<b>ᴄʜᴀɴɴᴇʟ ›› [𝘬𝘸𝘪𝘤𝘉𝘰𝘵 𝘜𝘱𝘥𝘢𝘵𝘦𝘴 ](https://t.me/kwicbotupdates)</b>
+1. Create a bot through BotFather and copy its token only into the protected
+   environment file.
+2. Obtain `API_ID` and `API_HASH` from `my.telegram.org` for the Telegram
+   application used by this service.
+3. Create a dedicated **private** Telegram channel to hold uploaded media.
+4. Add the bot to the channel and promote it to administrator with permission
+   to post messages.
+5. Determine the channel's numeric ID and set it as `BIN_CHANNEL`.
+6. Set `OWNER_ID` to the Telegram numeric ID permitted to use administrative
+   commands such as broadcasts.
+7. Start a private chat with the bot and send `/start`.
+
+Do not make the storage channel public. Treat its content and message IDs as
+private application data.
+
+## Nginx and HTTPS
+
+Copy and adapt the relevant template from [deploy/](deploy/):
+
+- `telegram-movieworldug.acme.nginx` is a minimal HTTP configuration for the
+  initial Let's Encrypt webroot challenge.
+- `telegram-movieworldug.filmjust.com.nginx` is the HTTPS template for the
+  first-level hostname pattern required by some Cloudflare certificates.
+- `telegram.movieworldug.filmjust.com.nginx` is an alternative nested-hostname
+  template; use it only if your DNS provider's certificate covers that name.
+
+For a new domain, replace the sample hostname in the chosen template, then:
+
+```bash
+sudo install -d -m 0755 /var/www/letsencrypt
+sudo cp deploy/telegram-movieworldug.acme.nginx /etc/nginx/sites-available/telegram-streamer
+sudo ln -s /etc/nginx/sites-available/telegram-streamer /etc/nginx/sites-enabled/telegram-streamer
+sudo nginx -t && sudo systemctl reload nginx
+
+sudo certbot certonly --webroot -w /var/www/letsencrypt -d telegram.example.com
+
+# Replace the temporary HTTP configuration with the HTTPS configuration.
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+If Cloudflare proxies the record, make sure its SSL/TLS mode is **Full
+(strict)** after the origin certificate exists. Keep the origin server firewall
+limited to the ports you actually need.
+
+## Running as a service
+
+Copy the supplied unit, then reload systemd and start it:
+
+```bash
+sudo cp deploy/movieworld-telegram-streamer.service \
+  /etc/systemd/system/movieworld-telegram-streamer.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now movieworld-telegram-streamer
+sudo systemctl status movieworld-telegram-streamer --no-pager
+```
+
+Useful diagnostics:
+
+```bash
+sudo journalctl -u movieworld-telegram-streamer -n 100 --no-pager
+sudo journalctl -u movieworld-telegram-streamer -f
+sudo nginx -t
+```
+
+## Using the bot
+
+Send a video, audio file, document, or photo to the bot in a **private chat**.
+The bot forwards it to the private storage channel and responds with buttons:
+
+- **Watch test** opens an HTML5 player page for audio/video.
+- **Download test** streams the original file as an attachment.
+
+Available user commands:
+
+- `/start` — register the user and show the basic instructions.
+- `/help` — show private-use guidance.
+- `/about` — identify the service as an isolated MovieWorld test service.
+- `/login` — only relevant when `REQUIRE_LOGIN_PASSWORD=true`; avoid enabling a
+  shared password for public use.
+
+Administrative and broadcast commands are restricted by `OWNER_ID`.
+
+## Testing
+
+Run these checks after each configuration or deployment change. Substitute
+your actual domain and do not paste token-bearing URLs into public tickets or
+screenshots.
+
+```bash
+# Service and local protected health check.
+sudo systemctl is-active movieworld-telegram-streamer
+curl -fsS 'http://127.0.0.1:9080/healthz?token=YOUR_HEALTH_TOKEN'
+
+# Public protected health check.
+curl -fsS 'https://telegram.example.com/healthz?token=YOUR_HEALTH_TOKEN'
+
+# Must not reveal service details without a token.
+curl -o /dev/null -sS -w '%{http_code}\n' 'https://telegram.example.com/healthz'
+# Expected: 404
+```
+
+Then upload one rights-cleared test video through the bot and verify:
+
+1. The bot returns Watch and Download buttons.
+2. The Watch page responds with `200` and contains a `<video>` element.
+3. A byte-range request to the Download URL responds with `206`.
+4. A request with an invalid token responds with `404`.
+
+## Operations
+
+### Updating the code
+
+Back up the protected environment file separately; it is intentionally not in
+the repository. Then update and restart:
+
+```bash
+sudo -u movieworldtg git -C /opt/movieworld-telegram-streamer pull --ff-only
+sudo -u movieworldtg /opt/movieworld-telegram-streamer/.venv/bin/pip install \
+  -r /opt/movieworld-telegram-streamer/requirements.txt
+sudo systemctl restart movieworld-telegram-streamer
+sudo systemctl is-active movieworld-telegram-streamer
+```
+
+### Rotating a secret
+
+Change the secret only in `/etc/movieworld-telegram-streamer.env`, restart the
+service, and test with `curl`. Rotating the current global stream token
+invalidates every existing test link. This is another reason to implement
+per-file keys before broader use.
+
+### Database backup
+
+Back up only the bot database, and protect the dump because it contains
+Telegram IDs:
+
+```bash
+mysqldump -u movieworld_telegram -p movieworld_telegram | gzip > telegram-bot.sql.gz
+chmod 0600 telegram-bot.sql.gz
+```
+
+## Known limitations and roadmap
+
+This service is intentionally not presented as a production content-delivery
+platform. Before integrating it with MovieWorld customer accounts, implement:
+
+1. One permanent, random, revocable MySQL access key per uploaded file.
+2. MovieWorld account authentication and entitlement checks for playback.
+3. Upload moderation, audit logs, rate limits, and abuse controls.
+4. HLS packaging/transcoding and a storage/CDN designed for licensed video
+   delivery, if traffic grows.
+5. Monitoring, backups, incident alerts, and documented recovery procedures.
+
+Never use this software to distribute media without the necessary rights.
+
+## Credits and licence
+
+This work is based on the upstream
+[FileStreamBot-pro](https://github.com/adarsh-goel/FileStreamBot-pro) source.
+See [LICENSE](LICENSE) for the licence that applies to this repository and
+retain upstream notices when redistributing it.

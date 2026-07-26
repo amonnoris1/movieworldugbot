@@ -5,10 +5,11 @@ import time
 import shutil, psutil
 from utils_bot import *
 from Adarsh import StartTime
+from Adarsh.vars import Var
 
         
     
-@StreamBot.on_message(filters.command('stats') & filters.private)
+@StreamBot.on_message(filters.command('stats') & filters.private & filters.user(list(Var.OWNER_ID)))
 async def stats(bot, update):
   currentTime = readable_time((time.time() - StartTime))
   total, used, free = shutil.disk_usage('.')

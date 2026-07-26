@@ -12,7 +12,7 @@ from Adarsh.bot import StreamBot
 from Adarsh.vars import Var
 from pyrogram import filters, Client
 from pyrogram.types import Message
-db = Database(Var.DATABASE_URL, Var.name)
+db = Database(Var.DB_CONFIG, "users")
 broadcast_ids = {}
 
 @StreamBot.on_message(filters.command("users") & filters.private)
@@ -47,7 +47,7 @@ async def broadcast_(c, m):
         success=success
     )
     async with aiofiles.open('broadcast.txt', 'w') as broadcast_log_file:
-        async for user in all_users:
+        for user in all_users:
             sts, msg = await send_msg(
                 user_id=int(user['id']),
                 message=broadcast_msg
